@@ -9,4 +9,4 @@ bin           = @["undefinedsync"]
 
 # Dependencies
 
-requires "nim >= 0.18.1"
+requires "nim >= 0.18.1", "webview#head"

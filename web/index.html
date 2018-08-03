@@ -5,6 +5,17 @@
         <link rel = "stylesheet" type = "text/css" href = "index.css">
     </head>
     <body>
-        <div class = "heading">Welcome</div>
+        <div class = "splash-main">
+            <div class = "logo">
+                <img src = "img/cloudbg.svg" alt = "Welcome to Sync" draggable = "false">
+            </div>
+            <div class = "splash-btn-ctr">
+                <div class = "splash-line"></div>
+                <ul class = "splash-btn-ctr-inner">
+                    <li onclick = "api.download()" class = "splash-btn"><span class = "dark">Download</span><br><span class = "light">before play</span></li>
+                    <li onclick = "api.upload()" class = "splash-btn"><span class = "dark">Upload</span><br><span class = "light">after play</span></li>
+                </ul>
+            </div>
+        </div>
     </body>
 </html>

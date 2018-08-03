@@ -1,4 +1,71 @@
-.heading {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 180%;
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.logo {
+    margin-top: 5%;
+}
+
+.splash-main { 
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.splash-btn-ctr {
+    width: 90%;
+    margin: 2% 0 0 5%;
+    padding: 0;
+}
+
+.splash-btn-ctr-inner {
+    display: -ms-flexbox;
+    display: flex;
+    margin-top: 3%;
+    padding: 0.7%;
+    list-style: none;
+    justify-content: space-between;
+}
+
+.splash-line {
+    width: 100%;
+    margin-top: 4%;
+    border-bottom: 1px solid #CCC;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+.splash-btn {
+    width: 260px;
+    height: 50px;
+    padding: 1%;
+    border-bottom: 1px solid #DDD;
+    text-align: center;
+    line-height: 25px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.splash-btn:focus, .splash-btn:hover {
+    background-color: #DADADA;
+}
+
+.splash-btn:active {
+    background-color: #CCC;
+}
+
+.dark {
+    font-weight: bolder;
+    color: #111;
+}
+
+.light {
+    font-weight: lighter;
+    color: #333;
 }

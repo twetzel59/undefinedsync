@@ -1,8 +1,22 @@
 import os, webview
 
-let wv = newWebView("Sync", "file://" & getCurrentDir() & "/web/index.html")
+proc doDownload() = 
+    echo "Download"
 
-try:
-    wv.run()
-finally:
-    wv.exit()
+proc doUpload() =
+    echo "Upload"
+
+proc main() =
+    let wv = newWebView("Sync", "file://" & getCurrentDir() & "/web/index.html", resizable = false)
+
+    wv.bindProcs("api"):
+        proc download() = doDownload()
+        proc upload() = doUpload()
+
+    try:
+        wv.run()
+    finally:
+        wv.exit()
+
+when isMainModule:
+    main()

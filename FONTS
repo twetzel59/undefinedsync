@@ -1,0 +1,3 @@
+The font used in the text of this application depends on your system.
+
+The font embedded as a path in the SVG image(s) located in web/img is the Laksaman TrueType font, which can be downloaded with an FTP client from ftp://linux.thai.net/pub/thailinux/software/fonts-tlwg/fonts/. The website for the font project is https://linux.thai.net/projects/fonts-tlwg.

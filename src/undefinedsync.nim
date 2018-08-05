@@ -1,10 +1,16 @@
-import std / [ os, threadpool ]
+import std / [ httpclient, os, threadpool ]
+from net import TimeoutError
 import webview
 
 type
+  WebviewEvalError = object of Exception ## An error that can occur on Windows
+                                         ## when eval encounters an internal
+                                         ## implementation-specific issue.
+
   MessageKind = enum ## Indicates the type of message
-    mkInetOk,        ## sent over the channel.
-    mkInetErr,
+    mkServerOk,      ## sent over the channel.
+    mkServerTimeout,
+    mkServerWrongProtocol,
     mkExitFailure
   
   Message = object ## A complete message.
@@ -14,25 +20,35 @@ type
     else:
       discard
 
-proc initMessageInetOk(): Message =
-  Message(kind: mkInetOk)
-proc initMessageInetErr(): Message =
-  Message(kind: mkInetErr)
-proc initMessageExitFailure(exceptionMsg: string): Message =
-  Message(kind: mkExitFailure, exceptionMsg: exceptionMsg)
-
+const server = "https://undefinedsync.000webhostapp.com" ## The URL of the central
+                                                         ## checkout control server.
 const serverReply = "undefinedSync_proto0" ## The reply the server should send if it 
                                            ## is compatible.
-const inetError = (
+const timeoutNotice = (
   title: "Network Error",
-  msg: "Sync thinks that you are not connected to the Internet. Check your network and proxy.")
+  msg: "Sync thinks that you are not connected to the server." &
+    " Check your network and proxy or contact a server admin.")
+
+const wrongProtoNotice = (
+  title: "Protocol Error",
+  msg: "Sync determined that the server does not support this" &
+    " version of Sync. Please contact a server admin."
+)
+
+const timeoutMillis = 4096 ## Time before the HTTP retrieval gives up (milliseconds).
 
 var wv: Webview
 var chan: Channel[Message]
 
-proc loop(wv: Webview; blocking: bool): bool =
+proc loopWrapper(wv: Webview; blocking: bool): bool =
   ## Wraps the C loop function with proper Booleans.
-  wv.loop(blocking.cint).bool
+  webview.loop(wv, blocking.cint).bool
+
+proc evalWrapper(wv: Webview, javascriptCode: string) {.raises: [WebviewEvalError].} =
+  ## Wraps the C eval function to handle return value
+  ## that only matters on Windows.
+  if webview.eval(wv, javascriptCode) == -1:
+    raise newException(WebviewEvalError, "The Webview C library returned -1. This indicates a bug or OOM.")
 
 template helperErrHandler(body: untyped): untyped =
   ## Handle exceptions properly in a helper thread.
@@ -43,16 +59,24 @@ template helperErrHandler(body: untyped): untyped =
     body
   except:
     try:
-      chan.send(initMessageExitFailure(getCurrentExceptionMsg()))
+      chan.send(Message(kind: mkExitFailure, exceptionMsg: getCurrentExceptionMsg()))
     except:
       echo "Error sending exception message over channel. This is a bug!"
 
-proc checkInternet() {.raises: [].} =
-  ## Checks the connection to the Internet by pinging
-  ## a site that should always be online.
+proc checkServer() {.raises: [].} =
+  ## Checks the connection to the server by pinging
+  ## it and checking the reply
   helperErrHandler:
-    sleep(4000)
-    chan.send(initMessageInetErr())
+    try:
+      let client = newHttpClient(timeout = timeoutMillis)
+      let content = client.getContent(server & "/ping.php")
+      
+      if content == serverReply:
+        chan.send(Message(kind: mkServerOk))
+      else:
+        chan.send(Message(kind: mkServerWrongProtocol))
+    except TimeoutError:
+      chan.send(Message(kind: mkServerTimeout))
 
 proc doDownload() =
   discard
@@ -73,25 +97,33 @@ proc main() =
       proc download() = doDownload()
       proc upload() = doUpload()
 
-    # The first helper checks the Internet connection.
-    spawn checkInternet()
+    # The first helper checks the connection to the server.
+    spawn checkServer()
 
     # Loop until the user exits or the loop is broken.
-    while not wv.loop(true):
+    while not wv.loopWrapper(true):
       # The channel controls the delivery of information
       # from the helpers to the main thread.
       let info = chan.tryRecv()
       if info.dataAvailable:
         case info.msg.kind:
-        of mkInetOk:
-          # The Internet connection test succeeded.
+        of mkServerOk:
+          # The server connection test succeeded.
           # Proceed with execution.
-          break
-        of mkInetErr:
-          # The Internet connection test failed.
+          wv.evalWrapper("displayMain();")
+        of mkServerTimeout:
+          # The server connection test failed.
           # Break and quit.
-          echo inetError.msg
-          wv.error(inetError.title, inetError.msg)
+          echo timeoutNotice.msg
+          wv.error(timeoutNotice.title, timeoutNotice.msg)
+          break
+        of mkServerWrongProtocol:
+          # The server did not return the magic
+          # string stored in the const serverReply.
+          # It is considered incompatible.
+          # Break and quit.
+          echo wrongProtoNotice.msg
+          wv.error(wrongProtoNotice.title, wrongProtoNotice.msg)
           break
         of mkExitFailure:
           # A helper threw an exception.

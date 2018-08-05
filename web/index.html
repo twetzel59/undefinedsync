@@ -10,7 +10,7 @@
                 <div class = "model-heading">Starting</div>
                 <div class = "model-body">
                     Just a moment:<br>
-                    We're checking your connection to the Internet.
+                    We're checking your connection to the central server.
                 </div>
             </div>
         </div>
@@ -27,14 +27,9 @@
             </div>
         </div>
         <script>
-            function displayMain(show) {
-                var elem = document.getElementById("main");
-
-                if (show) {
-                    elem.style.display = "block";
-                } else {
-                    elem.style.display = "none";
-                }
+            function displayMain() {
+                document.getElementById("main").style.display = "block";
+                document.getElementById("start").style.display = "none";
             }
         </script>
     </body>

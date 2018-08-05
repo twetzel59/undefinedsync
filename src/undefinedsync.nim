@@ -25,6 +25,9 @@ const inetError = (
 var wv: Webview
 var chan: Channel[Message]
 
+proc loop(wv: Webview; blocking: bool): bool =
+  wv.loop(blocking.cint).bool
+
 #proc checkInternet(): bool =
 #  false
 
@@ -60,7 +63,13 @@ proc main() =
     var work: Thread[void]
     createThread[void](work, begin)
 
-    wv.run()
+    var counter = 0
+    while not wv.loop(false):
+      echo counter
+      if counter == 100000:
+        echo "test"
+        break
+      inc counter
 
     joinThread(work)
   finally:

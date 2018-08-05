@@ -1,9 +1,10 @@
-import std / os
+import std / [ os, threadpool ]
 import webview
 
 type
   MessageKind = enum
-    mkExitSuccess,
+    mkInetOk,
+    mkInetErr,
     mkExitFailure
   
   Message = object
@@ -13,11 +14,14 @@ type
     else:
       discard
 
-proc initMessageExitSuccess(): Message =
-  Message(kind: mkExitSuccess)
+proc initMessageInetOk(): Message =
+  Message(kind: mkInetOk)
+proc initMessageInetErr(): Message =
+  Message(kind: mkInetErr)
 proc initMessageExitFailure(exceptionMsg: string): Message =
   Message(kind: mkExitFailure, exceptionMsg: exceptionMsg)
 
+const serverReply = "undefinedSync_proto0"
 const inetError = (
   title: "Network Error",
   msg: "Sync thinks that you are not connected to the Internet. Check your network and proxy.")
@@ -28,21 +32,19 @@ var chan: Channel[Message]
 proc loop(wv: Webview; blocking: bool): bool =
   wv.loop(blocking.cint).bool
 
-#proc checkInternet(): bool =
-#  false
-
-proc begin() {.thread, raises: [].} =
+template workerErrHandler(body: untyped): untyped =
   try:
-    #for i in 0..100000:
-    #  echo "hi"
-    #  if i == 1000:
-    #    raise newException(ValueError, "Test exception")
-    chan.send(initMessageExitSuccess())
+    body
   except:
     try:
       chan.send(initMessageExitFailure(getCurrentExceptionMsg()))
     except:
       echo "Error sending exception message over channel. This is a bug!"
+
+proc checkInternet() {.raises: [].} =
+  workerErrHandler:
+    sleep(4000)
+    chan.send(initMessageInetErr())
 
 proc doDownload() =
   discard
@@ -51,38 +53,33 @@ proc doUpload() =
   discard
 
 proc main() =
-  try:
-    wv = newWebView("Sync", "file://" & getCurrentDir() & "/web/index.html", resizable = false)
+  wv = newWebView("Sync", "file://" & getCurrentDir() & "/web/index.html", resizable = false)
+  chan.open()
 
+  try:
     wv.bindProcs("api"):
       proc download() = doDownload()
       proc upload() = doUpload()
 
-    chan.open()
+    spawn checkInternet()
 
-    var work: Thread[void]
-    createThread[void](work, begin)
-
-    var counter = 0
-    while not wv.loop(false):
-      echo counter
-      if counter == 100000:
-        echo "test"
-        break
-      inc counter
-
-    joinThread(work)
+    while not wv.loop(true):
+      let info = chan.tryRecv()
+      if info.dataAvailable:
+        case info.msg.kind:
+        of mkInetOk:
+          break
+        of mkInetErr:
+          echo inetError.msg
+          wv.error(inetError.title, inetError.msg)
+          break
+        of mkExitFailure:
+          let errBody = "The worker thread crashed! Exception message: " &
+            info.msg.exceptionMsg
+          echo errBody
+          wv.error("Exception", errBody)
+          break
   finally:
-    let info = chan.tryRecv()
-    if info.dataAvailable:
-      case info.msg.kind:
-      of mkExitSuccess:
-        discard
-      of mkExitFailure:
-        let errBody = "The worker thread crashed! Exception message: " &
-          info.msg.exceptionMsg
-        echo errBody
-
     chan.close()
     wv.exit()
     echo "Cleaning Up"

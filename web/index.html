@@ -5,16 +5,16 @@
         <link rel = "stylesheet" type = "text/css" href = "index.css">
     </head>
     <body>
-        <div class = "start-main" style = "display: none">
+        <div id = "start" class = "start-main">
             <div class = "start-inner">
                 <div class = "model-heading">Starting</div>
                 <div class = "model-body">
                     Just a moment:<br>
-                    We're checking your connection to the Internet and to the OUYA console.
+                    We're checking your connection to the Internet.
                 </div>
             </div>
         </div>
-        <div class = "panel-main">
+        <div id = "main" class = "panel-main" style = "display: none">
             <div class = "logo">
                 <img src = "img/cloudbg.svg" alt = "Welcome to Sync" draggable = "false">
             </div>
@@ -26,5 +26,16 @@
                 </ul>
             </div>
         </div>
+        <script>
+            function displayMain(show) {
+                var elem = document.getElementById("main");
+
+                if (show) {
+                    elem.style.display = "block";
+                } else {
+                    elem.style.display = "none";
+                }
+            }
+        </script>
     </body>
 </html>

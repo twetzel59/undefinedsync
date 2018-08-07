@@ -1,4 +1,4 @@
-import std / [ httpclient, os, threadpool ]
+import std / [ httpclient, os, strutils, threadpool ]
 from net import TimeoutError
 import webview
 
@@ -11,19 +11,31 @@ type
     mkServerOk,      ## sent over the channel.
     mkServerTimeout,
     mkServerWrongProtocol,
+    mkServerError,
     mkExitFailure
   
   Message = object ## A complete message.
     case kind: MessageKind:
     of mkExitFailure:
       exceptionMsg: string
+    of mkServerError:
+      serverErrorMsg: string
     else:
       discard
 
 const server = "https://undefinedsync.000webhostapp.com" ## The URL of the central
                                                          ## checkout control server.
+
 const serverReply = "undefinedSync_proto0" ## The reply the server should send if it 
                                            ## is compatible.
+
+const serverError = "undefinedSync_error0;" ## The server's reply should start with this
+                                            ## string if an error occurred. More information
+                                            ## can follow in the response after the semicolon.
+const serverErrorSplitChar = ';' ## The character to split the server's error reply with.
+                                 ## The second string resulting from the split will contain
+                                 ## any additional error information the server replied with.
+
 const timeoutNotice = (
   title: "Network Error",
   msg: "Sync thinks that you are not connected to the server." &
@@ -31,8 +43,14 @@ const timeoutNotice = (
 
 const wrongProtoNotice = (
   title: "Protocol Error",
-  msg: "Sync determined that the server does not support this" &
-    " version of Sync. Please contact a server admin."
+  msg: "Sync determined that the central server is malfunctioning" &
+    " or does not support this version of Sync. Please contact a server admin."
+)
+
+const serverErrorNotice = (
+  title: "Server Error",
+  msg: "Sync connected to the central server, but the server" &
+    " encountered an error. Please contact a server admin. Server response: "
 )
 
 const timeoutMillis = 4096 ## Time before the HTTP retrieval gives up (milliseconds).
@@ -74,7 +92,13 @@ proc checkServer() {.raises: [].} =
       if content == serverReply:
         chan.send(Message(kind: mkServerOk))
       else:
-        chan.send(Message(kind: mkServerWrongProtocol))
+        if content.startsWith(serverError):
+          let pieces = content.split(serverErrorSplitChar)
+          let errorMsg = serverErrorNotice.msg & pieces[1]
+
+          chan.send(Message(kind: mkServerError, serverErrorMsg: errorMsg))
+        else:
+          chan.send(Message(kind: mkServerWrongProtocol))
     except TimeoutError:
       chan.send(Message(kind: mkServerTimeout))
 
@@ -124,6 +148,14 @@ proc main() =
           # Break and quit.
           echo wrongProtoNotice.msg
           wv.error(wrongProtoNotice.title, wrongProtoNotice.msg)
+          break
+        of mkServerError:
+          # The server encountered an error
+          # processing our request.
+          # Report the server's error message
+          # to the user, then break and quit.
+          echo info.msg.serverErrorMsg
+          wv.error(serverErrorNotice.title, info.msg.serverErrorMsg)
           break
         of mkExitFailure:
           # A helper threw an exception.

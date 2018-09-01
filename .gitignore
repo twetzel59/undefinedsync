@@ -1,2 +1,2 @@
-undefinedsync
-src/nimcache/*
+/target
+**/*.rs.bk

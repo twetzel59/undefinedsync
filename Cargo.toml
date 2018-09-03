@@ -4,4 +4,4 @@ version = "0.1.0"
 authors = ["twetzel59 <twetzel59@gmail.com>"]
 
 [dependencies]
-webview = "0.1.1"
+web-view = "0.2.1"
